@@ -1,0 +1,32 @@
+\chapter{Problem Statement}
+
+What we are doing look like this in imperative code:
+%
+\begin{verbatim}
+for(int i=0; i<N; i++) {
+  idx, val = f(image[i]);
+  hist[idx] = hist[idx] 'op' val
+}
+\end{verbatim}
+%
+where \texttt{image} is an array of size $N$, and
+\texttt{'op'} is some associative and commutative
+operator.
+
+If we compute this sequentially memory accesses and ordering
+of the operands are deterministic on duplicate indices, and
+thus no problems arise. But if we compute it in parallel, we
+encounter two main problems:
+%
+\begin{description}
+  \item[Race conditions:] More than one data point may
+    correspond to the same bin which obviously produces race
+    conditions. We try to solve this by using atomic
+    operations.
+
+  \item[Reordering of operands:] Due to the GPUs scheduling
+    of threads permutation of operations may occur. We solve
+    this by requering that the combining operator is both
+    associative and commutative.
+\end{description}
+%

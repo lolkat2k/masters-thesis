@@ -1,0 +1,31 @@
+%% all settings
+\input{input/preamble}
+
+%% begin content
+\begin{document}
+
+% title, abstract, and toc
+\frontmatter
+
+% title (defined in preamble)
+\begin{titlingpage}
+  \maketitle
+\end{titlingpage}
+
+\input{input/content/abstract}
+
+\pagebreak
+
+% table of contents
+%\tableofcontents*
+
+% content
+\mainmatter
+
+\input{input/toc} % guideline for now
+\input{input/content/introduction}
+\input{input/content/background}
+\input{input/content/problem-statement}
+
+%% end content
+\end{document}

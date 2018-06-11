@@ -1,0 +1,43 @@
+\documentclass[a4paper, oneside, 12pt, hidelinks]{memoir}
+
+% hyphenation, special characters, etc. in diff. languages
+\usepackage[english]{babel}
+
+% https://en.wikibooks.org/wiki/LaTeX/Fonts#Font_encoding
+%\usepackage{palatino}
+%\usepackage[urw-garamond]{mathdesign}
+%% \usepackage[cmintegrals,cmbraces]{newtxmath}
+%% \usepackage{ebgaramond-maths}
+%\usepackage{ebgaramond}
+
+\usepackage{palatino}
+\usepackage[T1]{fontenc}
+\linespread{1.05}
+
+% https://en.wikibooks.org/wiki/LaTeX/Special_Characters
+\usepackage[utf8]{inputenc}
+
+% fixed spacing after parts in toc
+\setlength{\cftpartnumwidth}{4em}
+
+% write "Part II" etc. in TOC instead of just "II"
+\renewcommand*{\cftpartname}{Part\space}
+
+% no page numbering for parts in toc
+\cftpagenumbersoff{part}
+
+% turn on subsection numbering
+\setsecnumdepth{subsection}
+
+\usepackage{blindtext}
+
+% https://github.com/omegahm/ku-frontpage
+\usepackage[english, science, titlepage]{ku-frontpage}
+\assignment{Master's Thesis}
+\author{Sune Hellfritzsch --- \texttt{fjc657@alumni.ku.dk}}
+
+\title{On the Computation of Parallel Scatter Operations}
+\subtitle{}
+
+\advisor{Supervisor: Cosmin Eugen Oancea}
+\date{Submitted: October 23, 2018}
