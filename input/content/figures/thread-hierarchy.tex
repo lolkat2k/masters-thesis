@@ -1,0 +1,73 @@
+%
+\begin{figure}
+\begin{center}
+\begin{tikzpicture}[]
+  \newcommand\rectsep{1pt}
+  \newcommand\mysep{0.1}
+  \newcommand\myxshift{4}
+  \newcommand\rectbox[5]{%{x0}{y0}{x1}{y1}{Label}{label p0}{label p1}
+    %\draw[fill=dark-gray] (#1cm+\rectsep,#2cm+\rectsep) rectangle node{#5} +(#3cm-2*\rectsep,#4cm-2*\rectsep);
+    \draw[fill=dark-gray] (#1+\mysep+\myxshift, #2+\mysep) node (bob) {} rectangle node (spelunking) {\footnotesize #5} (#3-\mysep+\myxshift, #4-\mysep) node (notbob) {};
+  }
+%% Grid
+\node[draw, fill=light-gray, fit={(-10.0+\myxshift, 0.0)(-5.50+\myxshift, 4.5)}] (upper) {};
+%% Bottom row
+\rectbox{-10.0}{0.0}{-8.5}{1.5}{(0,0)};
+\rectbox{-8.50}{0.0}{-7.0}{1.5}{(1,0)};
+\rectbox{-7.00}{0.0}{-5.5}{1.5}{(2,0)};
+%% Middle row
+\rectbox{-10.0}{1.5}{-8.5}{3.0}{(0,1)};
+\rectbox{-8.50}{1.5}{-7.0}{3.0}{(1,1)};
+\rectbox{-7.00}{1.5}{-5.5}{3.0}{(2,1)};
+%% Top row
+\rectbox{-10.0}{3.0}{-8.50}{4.5}{(0,2)};
+\rectbox{-8.50}{3.0}{-7.00}{4.5}{(1,2)};
+\rectbox{-7.00}{3.0}{-5.50}{4.5}{(2,2)};
+%% Shadow nodes
+\node[anchor=south west] (ld) at (-7.00+\mysep+\myxshift, 1.5+\mysep, 0) {};
+\node[anchor=north west] (lu) at (-7.00+\mysep+\myxshift, 3.0-\mysep, 0) {};
+\node[anchor=south east] (rd) at (-5.50-\mysep+\myxshift, 1.5+\mysep, 0) {};
+\node[anchor=north east] (ru) at (-5.50-\mysep+\myxshift, 3.0-\mysep, 0) {};
+
+%% Arrows from grid to thread block
+\newcommand\myyshift{0.15}
+\node[draw, fit={(0,0+\myyshift,0)(3,3+\myyshift,-3)}] (cubenode) {}; % x,y,z
+\draw[dashed] (ld.south west) -- (cubenode.south west);
+\draw[dashed] (lu.north west) -- (cubenode.north west);
+\draw[dashed] (rd.south east) -- (cubenode.south east);
+\draw[dashed] (ru.north east) -- (cubenode.north east);
+\node[draw, fit={(0,0+\myyshift,0)(3,3+\myyshift,-3)}, fill=dark-gray] {}; % x,y,z
+%\node[anchor=south] at ([yshift=0.15cm]cubenode.north) {Thread block};
+
+% Fill cuboid
+\filldraw[light-gray] (0,0+\myyshift,0) rectangle (3,3+\myyshift,0); % front
+\filldraw[light-gray] (3,0+\myyshift,-3) -- (3,3+\myyshift,-3) -- (3,3+\myyshift,0) -- (3,0+\myyshift,0); % right
+\filldraw[light-gray] (0,3+\myyshift,-3) -- (0,3+\myyshift,0) -- (3,3+\myyshift,0) -- (3,3+\myyshift,-3); % top
+% Cuboid
+\foreach \x in {0,...,3}
+{   \draw (0,  \x+\myyshift, 0) -- (3,\x+\myyshift, 0);   % horizontal lines - front
+    \draw (\x, 0+\myyshift,  0) -- (\x ,3+\myyshift, 0); % vertical lines - front
+    \draw (3,\x+\myyshift, -3) -- (3,\x+\myyshift, 0); % depth - right
+    \draw (\x ,3+\myyshift, -3) -- (\x ,3+\myyshift, 0); % depth - top
+    \draw (3,0+\myyshift, -\x ) -- (3,3+\myyshift, -\x); % vertical lines - right
+    \draw (0,3+\myyshift, -\x ) -- (3,3+\myyshift, -\x); % horizontal lines - top
+};
+% Arrows
+\draw[-latex]   (0.5, 0.5+\myyshift, 0) to [out=0, in=160] (5.0, 0.5+\myyshift, 0);
+\node[right] at (5.0, 0.5+\myyshift, 0) {{\footnotesize Thread (0, 0, 0)}};
+%
+\draw[-latex]   (3.0, 1.5+\myyshift, -1.5) to [out=30, in=160] (5.0, 1.5+\myyshift, 0);
+\node[right] at (5.0, 1.5+\myyshift, 0) {{\footnotesize Thread (2, 1, 1)}};
+%
+\draw[-latex]   (1.5, 3.0+\myyshift, -1.5) to [out=20, in=140] (5.0, 2.5+\myyshift, 0);
+\node[right] at (5.0, 2.5+\myyshift, 0) {{\footnotesize Thread (1, 2, 1)}};
+%
+\end{tikzpicture}
+\end{center}
+\caption{Thread hierarchy. Here we have displayed a grid
+  (left) and emphasized thread block (2,1) (right), along
+  with individual threads in that block. In total, this
+  constitutes a kernel.}
+\label{fig:thread_hierarchy}
+\end{figure}
+%

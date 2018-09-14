@@ -1,0 +1,38 @@
+%
+\begin{figure}
+\begin{center}
+\begin{tikzpicture}[
+      every node/.style={minimum size=1cm-\pgflinewidth, outer sep=0pt, font=\scriptsize}]
+% Top - Host
+\filldraw[fill=light-gray, draw=black] (0,2) rectangle (6,3);
+\filldraw[fill=dark-gray, draw=black] (0,2) rectangle (0.5,3);
+\filldraw[fill=dark-gray, draw=black] (1.5,2) rectangle (3,3);
+\filldraw[fill=dark-gray, draw=black] (5,2) rectangle (6,3);
+\node[fit={(0,2)(6,3)}] (upper) {};
+\node[anchor=east, at=(upper.west)] (hostlab) {Host};
+% Bottom - Device
+\filldraw[fill=light-gray, draw=black] (0,0) rectangle (6,1);
+\filldraw[fill=dark-gray, draw=black] (0.5,0) rectangle (1.5,1);
+\filldraw[fill=dark-gray, draw=black] (3,0) rectangle (5,1);
+\node[fit={(0,0)(6,1)}] (lower) {};
+\node [anchor=east, at=(lower.west)] (devlab) {Device};
+% Arrows
+\draw[-latex] (0.5,2) -- node[above, rotate=90, align=center] {Data \\ + Code} (0.5,1);
+\draw[-latex] (1.5,1) -- node[above, rotate=90] {Data} (1.5,2);
+%
+\draw[-latex] (3,2) -- node[above, rotate=90, align=center] {Data \\ + Code} (3,1);
+\draw[-latex] (5,1) -- node[above, rotate=90] {Data} (5,2);
+% Time line
+\draw[-latex] ([yshift=0.25cm]upper.north west) -- node[above] {Time} ([yshift=0.25cm]upper.north east);
+\draw[latex-latex] ([xshift=0.25cm]upper.north east) -- node[below, rotate=90] {Data} ([xshift=0.25cm]lower.south east);
+\end{tikzpicture}
+\end{center}
+\caption{Heterogeneous programming. The host is transferring
+  code and data to the device, and the device transfers back
+  data to the host. Here the host is launching two
+  kernels. The areas colored with a darker color is
+  indicating where the computation is. The host is always in
+  control of the device.}
+\label{fig:heterogeneous}
+\end{figure}
+%
