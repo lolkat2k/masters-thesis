@@ -1,0 +1,70 @@
+\chapter{Implementation}
+\label{chap:implementation}
+
+Source lang:
+%
+\begin{equation}
+  *[m]\alpha \rightarrow
+  \left(
+      \alpha \rightarrow \alpha \rightarrow \alpha
+  \right) \rightarrow
+  \alpha \rightarrow
+  \left(
+      \beta \rightarrow \left( i32, \alpha \right)
+  \right) \rightarrow
+  *[n]\beta
+\end{equation}
+%
+SOACS representation:
+%
+%
+\begin{equation}
+  %% destination arrays
+  \overline{*[m_i]\alpha_i}^{kl_i} \rightarrow
+  %% combining operators
+  \overline{
+  \left(
+      \overline{\alpha_i}^{l_i} \rightarrow
+      \overline{\alpha_i}^{l_i} \rightarrow
+      \overline{\alpha_i}^{l_i}
+  \right)}^k \rightarrow
+  %% neutral elements
+  \overline{\alpha_i}^{kl_i} \rightarrow
+  %% bucket function
+  \left(
+      \overline{\beta_i}^k \rightarrow
+      \overline{ \left( i32, \overline{\alpha_i}^{l_i} \right) }^k
+  \right) \rightarrow
+  %% input arrays
+  \overline{*[n_i]\beta_i}^k
+\end{equation}
+%
+where all indices returned from the bucket function are equal.
+
+%
+\begin{figure}
+\begin{center}
+\input{input/content/figures/pipeline}
+\end{center}
+\caption{Overview of compiler stages}
+\label{fig:pipeline}
+\end{figure}
+%
+%
+\begin{figure}
+\begin{center}
+\input{input/content/figures/internaliser}
+\end{center}
+\caption{Overview of internaliser.}
+\label{fig:internaliser}
+\end{figure}
+%
+%
+\begin{figure}
+\begin{center}
+\input{input/content/figures/passes}
+\end{center}
+\caption{Overview of passes.}
+\label{fig:passes}
+\end{figure}
+%

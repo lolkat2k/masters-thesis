@@ -1,32 +1,138 @@
-\chapter{Problem Statement}
+\chapter{The Problem}
+\label{chap:theproblem}
 
-What we are doing look like this in imperative code:
+In this section we will describe the problem and give a
+brief outline of the research. \todo{For now this is just my thesis description}
+
+
+\section{Motivation}
+
+\todo{functional languages?} In data-parallel computing a
+scatter operation receives as arguments an original array,
+an array of indices, and an array of values, and it updates
+the elements of the original array at the corresponding
+indices with the new provided values. In pseudo-code this
+can be written as:
 %
-\begin{verbatim}
+\begin{lstlisting}
 for(int i=0; i<N; i++) {
-  idx, val = f(image[i]);
-  hist[idx] = hist[idx] 'op' val
+  ind, val = f(xs[i])
+  ys[i] = val
 }
-\end{verbatim}
+\end{lstlisting}
 %
-where \texttt{image} is an array of size $N$, and
-\texttt{'op'} is some associative and commutative
-operator.
+where \texttt{xs} is an input array, \texttt{f} is a bucket
+function producing an index and a value, and \texttt{ys} is
+the result array.
 
-If we compute this sequentially memory accesses and ordering
-of the operands are deterministic on duplicate indices, and
-thus no problems arise. But if we compute it in parallel, we
-encounter two main problems:
-%
-\begin{description}
-  \item[Race conditions:] More than one data point may
-    correspond to the same bin which obviously produces race
-    conditions. We try to solve this by using atomic
-    operations.
+One can generalize the scatter construct to
+represent a fusion between a map and a scatter, in which the
+mapped function transforms some arbitrary type \texttt{a}
+into index-value pairs of type \texttt{(int, b)}, and the
+scatter updates the original array based on these
+index-value pairs. The advantage is that the fused
+map-scatter does not need to materialize the index-value
+arrays in memory.
 
-  \item[Reordering of operands:] Due to the GPUs scheduling
-    of threads permutation of operations may occur. We solve
-    this by requering that the combining operator is both
-    associative and commutative.
-\end{description}
+
+\section{Problem Statement}
+
+Currently, the intermediate representation of scatter in the
+Futhark compiler has the following type signature:
 %
+\begin{equation}
+  \mathtt{scatter^{IR}_{U}} \ : \
+  \mathtt{[m]b} \rightarrow
+  \mathtt{(a \rightarrow (int, b))} \rightarrow
+  \mathtt{[n]a} \rightarrow
+  \mathtt{[m]b}
+\end{equation}
+%
+where $\mathtt{[m]b}$ is understood as an array of type
+$\mathtt{b}$ and size $m$, and $n \leq m$. An example of its
+semantics, assuming a tuple of array representation and type
+$\mathtt{a = (int, b)}$, is given by:
+%
+\begin{equation}
+  \mathtt{scatter^{IR}_{U}} \
+  \mathtt{[b_0, \dots, b_{m-1}]} \
+  \mathtt{id} \
+  \mathtt{[0, 2, 4, 6]} \
+  \mathtt{[a_0, a_2 , a_4 ,a_6]}
+\end{equation}
+%
+which results in
+%
+\begin{equation}
+  \mathtt{[a_0, b_1, a_2, b_3, a_4, b_5, a_6, b_7, b_8,
+      \dots, b_{m-1}]}
+\end{equation}
+%
+
+One problem however, is that the current
+$\mathtt{scatter^{IR}_{U}}$ has a nondeterministic semantics
+when there are several to-be-updated values corresponding to
+the same index, i.e., the when the index array contains
+duplicates. For example, if the map results in $\mathtt{[(0,
+    3.0), (0, 4.0), \dots]}$ then the first element of the
+result array may be either $\mathtt{3.0}$ or $\mathtt{4.0}$
+depending on which update gets executed first. The second
+problem is that the current $\mathtt{scatter^{IR}_{U}}$
+lacks the ability to combine several values corresponding to
+the same index as it will simply overwrite that element.
+
+This thesis studies the feasibility of generalizing the
+scatter construct with such support, which for example would
+allow efficient computation of histograms. The starting
+point is to generalize $\mathtt{scatter^{IR}_{U}}$ as below:
+%
+\begin{equation}
+  \mathtt{scatter^{IR}_{H}} \ : \
+  \mathtt{[m]b} \rightarrow
+  \mathtt{(b \rightarrow b \rightarrow b)} \rightarrow
+  \mathtt{b} \rightarrow
+  \mathtt{(a \rightarrow (i32, b))} \rightarrow
+  \mathtt{[n]a} \rightarrow
+  \mathtt{[m]b}
+\end{equation}
+%
+such that it, in addition, takes as input an associative and
+commutative operator and identity element, i.e., a
+commutative monoid. The new scatter would have the following
+data-parallel semantics:
+%
+\begin{enumerate}
+  \item The map is computed and results, semantically, in an
+    array of index-value pairs.
+  \item The latter is sorted with respect to indices, and
+  \item Re-organized as a two-dimensional irregular array in
+    which the segments (rows) correspond to values that
+    share the same index.
+  \item An irregular segmented reduction, with a specified
+    binary associative operator, would compute the
+    to-be-updated value for each index, and ultimately
+  \item Each such index of the original array is updated to
+    the previously computed combined-value.
+\end{enumerate}
+%
+
+Note however that while implementation as above is possible,
+it is also very inefficient because it requires several
+(segmented) scans which are slow on GPU hardware. We aim
+instead at a code generation that is based on atomic
+updates, and which, we believe will provide significant
+performance gains.
+
+Finally, the observant reader may notice that the new
+scatter is not entirely a generalization of the old scatter:
+There does not seem to exist an associative and commutative
+binary operator that can match the update semantics of
+$\mathtt{scatter^{IR}_{U}}$.
+
+
+\section{Brief outline of research}
+
+Dunno what this should contain yet. Maybe just some forward
+references like in the intro but more detailed and using the
+language/knowledge we have learned in the Background
+chapter.

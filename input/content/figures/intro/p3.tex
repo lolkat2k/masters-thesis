@@ -1,0 +1,82 @@
+\begin{tikzpicture}[remember picture,
+      every node/.style={minimum size=1cm-\pgflinewidth, outer sep=0pt, font=\scriptsize}]
+%%%% IMAGES
+%% Left
+% Top row
+\node[fill=green!40, anchor=south west] at (0,0) {0};
+\node[fill=green!40, anchor=south west] at (1,0) {1};
+\node[fill=yellow!40, anchor=south west] at (2,0) {2};
+\node[fill=red!40, anchor=south west] at (3,0) {3};
+% Bottom row
+\node[fill=yellow!40, anchor=south west] at (0,1) {4};
+\node[fill=yellow!40, anchor=south west] at (1,1) {5};
+\node[fill=green!40, anchor=south west] at (2,1) {6};
+\node[fill=yellow!40, anchor=south west] at (3,1) {7};
+%
+\draw[step=1cm,color=black] (0,0) grid (4,2);
+\node[fit={(0,0)(4,2)}] (P3IL) {};
+%% Right
+% Top row
+\node[fill=blue!40, anchor=south west] at (5,0) {8};
+\node[fill=blue!40, anchor=south west] at (6,0) {9};
+\node[fill=green!40, anchor=south west] at (7,0) {10};
+\node[fill=yellow!40, anchor=south west] at (8,0) {11};
+% Bottom row
+\node[fill=green!40, anchor=south west] at (5,1) {12};
+\node[fill=yellow!40, anchor=south west] at (6,1) {13};
+\node[fill=red!40, anchor=south west] at (7,1) {14};
+\node[fill=red!40, anchor=south west] at (8,1) {15};
+% Grid
+\draw[step=1cm,color=black] (5,0) grid (9,2);
+\node[fit={(5,0)(9,2)}] (P3IR) {};
+%
+%%%% HISTOGRAMS
+%% Left
+% Grid
+\draw[-, step=1cm, color=black] (0,-3) grid (4,-3);
+\draw[->, step=1cm, color=black] (0,-3) grid (0,-0.75);
+\node[fit={(0,-3)(4,-1)}] (P3HL) {};
+% Boxes
+\newcommand{\mysep}{3pt}
+%\draw[fill=blue!40]   (0cm + \mysep, -3cm) rectangle node{} +(1cm - 2*\mysep, 0cm);
+\draw[fill=green!40]  (1cm + \mysep, -3cm) rectangle node{} +(1cm - 2*\mysep, 1.5cm);
+\draw[fill=red!40]    (2cm + \mysep, -3cm) rectangle node{} +(1cm - 2*\mysep, 0.5cm);
+\draw[fill=yellow!40] (3cm + \mysep, -3cm) rectangle node{} +(1cm - 2*\mysep, 2cm);
+% Y-Labels
+\draw (0, -2.5)-- +(-0.2, 0) node[left, xshift=0.25cm] {$1$};
+\draw (0, -2)-- +(-0.2, 0) node[left, xshift=0.25cm]{$2$};
+\draw (0, -1.5)-- +(-0.2, 0) node[left, xshift=0.25cm]{$3$};
+\draw (0, -1)-- +(-0.2, 0) node[left, xshift=0.25cm]{$4$};
+\draw[thin, gray] (0,-2)-- +(4,0);
+\draw[thin, gray] (0,-1)-- +(4,0);
+% X-Labels
+\draw (0.5,-3) -- +(0,-0.2) node[below, yshift=0.25cm]{Blue};
+\draw (1.5,-3) -- +(0,-0.2) node[below, yshift=0.25cm]{Green};
+\draw (2.5,-3) -- +(0,-0.2) node[below, yshift=0.25cm]{Red};
+\draw (3.5,-3) -- +(0,-0.2) node[below, yshift=0.25cm]{Yellow};
+%% Right
+% Grid
+\draw[-, step=1cm, color=black] (5,-3) grid (9,-3);
+\draw[->, step=1cm, color=black] (5,-3) grid (5,-0.75);
+\node[fit={(5,-3)(9,-1)}] (P3HR) {};
+% Boxes
+\draw[fill=blue!40]   (5cm + \mysep, -3cm) rectangle node{} +(1cm - 2*\mysep, 1cm);
+\draw[fill=green!40]  (6cm + \mysep, -3cm) rectangle node{} +(1cm - 2*\mysep, 1cm);
+\draw[fill=red!40]    (7cm + \mysep, -3cm) rectangle node{} +(1cm - 2*\mysep, 1cm);
+\draw[fill=yellow!40] (8cm + \mysep, -3cm) rectangle node{} +(1cm - 2*\mysep, 1cm);
+% Y-Labels
+\draw (5, -2.5)-- +(-0.2, 0) node[left, xshift=0.25cm]{$1$};
+\draw (5, -2)-- +(-0.2, 0) node[left, xshift=0.25cm]{$2$};
+\draw (5, -1.5)-- +(-0.2, 0) node[left, xshift=0.25cm]{$3$};
+\draw (5, -1)-- +(-0.2, 0) node[left, xshift=0.25cm]{$4$};
+\draw[thin, gray] (5,-2)-- +(4,0);
+\draw[thin, gray] (5,-1)-- +(4,0);
+% X-Labels
+\draw (5.5,-3) -- +(0,-0.2) node[below, yshift=0.25cm]{Blue};
+\draw (6.5,-3) -- +(0,-0.2) node[below, yshift=0.25cm]{Green};
+\draw (7.5,-3) -- +(0,-0.2) node[below, yshift=0.25cm]{Red};
+\draw (8.5,-3) -- +(0,-0.2) node[below, yshift=0.25cm]{Yellow};
+%%%% ARROWS BETWEEN IMAGES AND HISTOGRAMS
+\draw[->, thick] (P3IL) -- (P3HL);
+\draw[->, thick] (P3IR) -- (P3HR);
+\end{tikzpicture}

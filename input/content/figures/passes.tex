@@ -1,0 +1,88 @@
+%%%% Compiler overview
+\begin{tikzpicture}[
+    every node/.style={font=\tiny},
+    main node/.style={rectangle, draw, fill=light-gray, font=\tiny,
+      minimum width=width("Explicit Allocations"),
+      minimum height=2\baselineskip},
+    inner node/.style={rectangle, anchor=north east, font=\tiny},
+    node distance=5mm and 8mm
+]
+%% Main nodes
+% SOACS
+  \node[main node] (51a) {Simplify};
+  \node[inner node, at=(51a.north east)] {5.1a};
+
+  \node[main node] (51b) [below=of 51a, align=center] {Fuse SOACS};
+  \node[inner node, at=(51b.north east)] {5.1b};
+
+  \node[main node] (51c) [below=of 51b] {(Other)};
+  \node[inner node, at=(51c.north east)] {5.1c};
+% Kernels
+  \node[main node] (52a) [right=of 51a] {Extract Kernels};
+  \node[inner node, at=(52a.north east)] {5.2a};
+
+  \node[main node] (52b) [below=of 52a, align=center] {Babysit Kernels};
+  \node[inner node, at=(52b.north east)] {5.2b};
+
+  \node[main node] (52c) [below=of 52b] {Tile loops};
+  \node[inner node, at=(52c.north east)] {5.2c};
+
+  \node[main node] (52d) [below=of 52c] {Simplify};
+  \node[inner node, at=(52d.north east)] {5.2d};
+% ExplicitMemory
+  \node[main node] (53a) [right=of 52a] {Explicit Allocations};
+  \node[inner node, at=(53a.north east)] {5.3a};
+
+  \node[main node] (53b) [below=of 53a, align=center] {Simplify};
+  \node[inner node, at=(53b.north east)] {5.3b};
+
+  \node[main node] (53c) [below=of 53b] {Double buffer};
+  \node[inner node, at=(53c.north east)] {5.3c};
+
+  \node[main node] (53d) [below=of 53c] {(Other)};
+  \node[inner node, at=(53d.north east)] {5.3d};
+%% Shadow nodes
+  \node [above=1.25cm of 51a, align=center] (start) {AST: \\ Core: SOACS};
+%  \node [right=of 53a, align=center] (end) {AST: \\ Core: ExplicitMemory};
+  \node [below=0.60cm of 53d, align=center] (end) {AST: \\ Core: ExplicitMemory};
+%% Arrows
+% SOACS
+\draw [->] (start) -- (51a);
+\draw [->] (51a) -- (51b);
+\draw [->] (51b) -- (51c);
+% Kernels
+\draw [->] (51c.east) -| + (0.4, 0) |- (52a.west);
+\draw [->] (52a) -- (52b);
+\draw [->] (52b) -- (52c);
+\draw [->] (52c) -- (52d);
+% ExplicitMemory
+\draw [->] (52d.east) -| + (0.4, 0) |- (53a.west);
+\draw [->] (53a) -- (53b);
+\draw [->] (53b) -- (53c);
+\draw [->] (53c) -- (53d);
+%\draw [->] (53d.east) -| + (0.4, 0) |- (end.west);
+\draw [->] (53d) -- (end);
+
+%% Enclosing boxes
+% SOACS
+\node[draw, dashed, rounded corners, color=black, fit={(51a)(51b)(51c)}
+] (soacs) {};
+\node [anchor=south east, at=(soacs.north)] (soacslab) {SOACS};
+% Kernels
+\node[draw, dashed, rounded corners, color=black, fit={(52a)(52b)(52c)(52d)}
+] (kernels) {};
+\node [anchor=south, at=(kernels.north)] (kernelslab) {Kernels};
+% ExplicitMemory
+\node[draw, dashed, rounded corners, color=black, fit={(53a)(53b)(53c)(53d)}
+] (expmem) {};
+\node [anchor=south, at=(expmem.north)] (expmemlab) {ExplicitMemory};
+%% Shadow node -- instead of fitting with 'inner ysep'
+\node [anchor=south, at=(kernels.south)] (shadow) {\phantom{KESOACS}};
+%%
+% Passes
+\node[draw, dashed, rounded corners, color=black, inner xsep=3mm, %inner ysep=3mm,
+  fit={(51a)(51b)(51c)(52a)(52b)(52c)(52d)(53a)(53b)(53c)(53d)(soacslab)(kernelslab)(expmemlab)(shadow)}
+] (passes) {};
+\node [anchor=south, at=(passes.north)] (passeslab) {Transformations + Optimisations};
+\end{tikzpicture}
+%

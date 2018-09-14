@@ -104,12 +104,12 @@
 
   \def\maketitle{
     \thispagestyle{empty}
-    \AddToShipoutPicture*{\put(0, -35){\includegraphics*{logos/\KUFACULTY-logo}}}
-    \AddToShipoutPicture*{\put(5, -10){\includegraphics*{logos/\KUFACULTY-\KULANG}}}
+    \AddToShipoutPicture*{\put( 0, -35){\includegraphics*{logos/\KUFACULTY-logo}}}
+    \AddToShipoutPicture*{\put(-8,   8){\includegraphics*{logos/\KUFACULTY-\KULANG}}}
 
     \ifthenelse{\equal{\FRONTPAGEIMAGE}{...}}{}{
       \AddToShipoutPicture*{
-        \AtPageUpperLeft{\raisebox{-185mm}{\hspace{55pt}\includegraphics*[width=\textwidth, height=100mm, keepaspectratio]{\FRONTPAGEIMAGE}}}
+        \AtPageUpperLeft{\raisebox{-185mm}{\hspace{75pt}\includegraphics*[width=1.15\textwidth, height=100mm, keepaspectratio]{\FRONTPAGEIMAGE}}}
       }
     }
 
@@ -127,7 +127,7 @@
 
     \begin{textblock}{10}(1.14, 21.35)
       \noindent\fontsize{11pt}{12pt}\KUsemibold\ADVISOR
-      \par\vspace{2mm}
+      \par\vspace{5mm}
       \noindent\fontsize{11pt}{12pt}\KUsemibold\DATE
     \end{textblock}
 

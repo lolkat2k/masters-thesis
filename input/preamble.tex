@@ -2,23 +2,39 @@
 
 % hyphenation, special characters, etc. in diff. languages
 \usepackage[english]{babel}
-
-% https://en.wikibooks.org/wiki/LaTeX/Fonts#Font_encoding
-%\usepackage{palatino}
-%\usepackage[urw-garamond]{mathdesign}
-%% \usepackage[cmintegrals,cmbraces]{newtxmath}
-%% \usepackage{ebgaramond-maths}
-%\usepackage{ebgaramond}
-
-\usepackage{palatino}
-\usepackage[T1]{fontenc}
-\linespread{1.05}
-
-% https://en.wikibooks.org/wiki/LaTeX/Special_Characters
 \usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+%\linespread{1.05}
+%\renewcommand{\ttdefault}{pcr} % courier
+
+% don't break listings
+\usepackage{etoolbox}
+\usepackage{listings}
+\lstset{
+  basicstyle=\small\ttfamily,
+%  xleftmargin=0.25in,
+  numbers=left,
+  numberstyle=\small\ttfamily
+}
+\BeforeBeginEnvironment{lstlisting}{%
+  \vspace{\topskip}\par\noindent%
+  \begin{minipage}{\linewidth}
+}
+\AfterEndEnvironment{lstlisting}{%
+  \end{minipage}\noindent
+}
+
+% Define environment / something for:
+% 1) inline code (in text) % \lstinline?
+% 2) inline code (between text but not a figure) that does not break
+% 3) a figure environment that does not break
+
+% header is empty and footer displays pagenumber
+\pagestyle{plain}
+\chapterstyle{section}
 
 % fixed spacing after parts in toc
-\setlength{\cftpartnumwidth}{4em}
+\setlength{\cftpartnumwidth}{3em}
 
 % write "Part II" etc. in TOC instead of just "II"
 \renewcommand*{\cftpartname}{Part\space}
@@ -31,13 +47,47 @@
 
 \usepackage{blindtext}
 
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\mathtoolsset{showonlyrefs}
+
+\newsubfloat{figure}
+
+\usepackage{graphics}
+\captionnamefont{\bfseries}
+\subcaptionlabelfont{\bfseries}
+\hangcaption % easier on the eyes
+
+%% Separators for floats at the top of a page and at the
+%% bottom of a page.
+\def\topfigrule{\vskip2ex\noindent\dotfill}
+\def\botfigrule{\noindent\dotfill\vskip2ex}
+
+%% Todo notes package
+\usepackage[textsize=tiny]{todonotes}
+
+% TikZ: used to create diagrams
+\usepackage{tikz}
+\usetikzlibrary{positioning,shapes,fit,arrows,patterns,backgrounds}
+
+% Defining the background color
+\usepackage{xcolor}
+\definecolor{light-gray}{gray}{0.90} % 0.95 is the shade of grey that stack exchange uses
+\definecolor{dark-gray}{gray}{0.60}
+
+% Used for calculating maximum height and width of boxes
+\usepackage{calc}
+
 % https://github.com/omegahm/ku-frontpage
 \usepackage[english, science, titlepage]{ku-frontpage}
 \assignment{Master's Thesis}
 \author{Sune Hellfritzsch --- \texttt{fjc657@alumni.ku.dk}}
 
-\title{On the Computation of Parallel Scatter Operations}
+\title{Efficient Histogram Computation on GPGPUs}
 \subtitle{}
 
 \advisor{Supervisor: Cosmin Eugen Oancea}
 \date{Submitted: October 23, 2018}
+
+\frontpageimage{gottagofast.png}

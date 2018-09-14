@@ -1,0 +1,30 @@
+\begin{minipage}[c]{0.35\linewidth}
+\begin{tikzpicture}[remember picture,
+      every node/.style={minimum size=1cm-\pgflinewidth, outer sep=0pt, font=\scriptsize}]
+% Bottom row
+\node[fill=green!40, anchor=south west] at (0,0) {0};
+\node[fill=green!40, anchor=south west] at (1,0) {1};
+\node[fill=yellow!40, anchor=south west] at (2,0) {2};
+\node[fill=red!40, anchor=south west] at (3,0) {3};
+% Lower middle row
+\node[fill=yellow!40, anchor=south west] at (0,1) {4};
+\node[fill=yellow!40, anchor=south west] at (1,1) {5};
+\node[fill=green!40, anchor=south west] at (2,1) {6};
+\node[fill=yellow!40, anchor=south west] at (3,1) {7};
+% Upper middle row
+\node[fill=blue!40, anchor=south west] at (0,2) {8};
+\node[fill=blue!40, anchor=south west] at (1,2) {9};
+\node[fill=green!40, anchor=south west] at (2,2) {10};
+\node[fill=yellow!40, anchor=south west] at (3,2) {11};
+% Top row
+\node[fill=green!40, anchor=south west] at (0,3) {12};
+\node[fill=yellow!40, anchor=south west] at (1,3) {13};
+\node[fill=red!40, anchor=south west] at (2,3) {14};
+\node[fill=red!40, anchor=south west] at (3,3) {15};
+%
+\draw[step=1cm,color=black] (0,0) grid (4,4);
+%
+\node[fit={(0,0)(4,4)}, xshift=0.25cm] (P1L) {};
+\end{tikzpicture}
+\end{minipage}
+

@@ -1,31 +1,46 @@
 %% all settings
 \input{input/preamble}
 
-%% begin content
 \begin{document}
 
-% title, abstract, and toc
 \frontmatter
 
-% title (defined in preamble)
+%% title (defined in preamble)
 \begin{titlingpage}
   \maketitle
 \end{titlingpage}
 
 \input{input/content/abstract}
-
 \pagebreak
 
-% table of contents
-%\tableofcontents*
+%% table of contents
+\tableofcontents*
 
-% content
 \mainmatter
+\counterwithout{figure}{chapter}
+\counterwithout{table}{chapter}
 
-\input{input/toc} % guideline for now
+%% content
 \input{input/content/introduction}
+
+\part{Understanding the Problem}
 \input{input/content/background}
 \input{input/content/problem-statement}
+
+\part{Development, Implementation, and Benchmarks}
+\input{input/content/prototyping}
+\input{input/content/implementation}
+\input{input/content/benchmarks}
+
+\part{Final Remarks}
+\input{input/content/conclusion}
+
+\backmatter
+\input{input/content/appendix}
+
+\nocite{*}
+\bibliographystyle{alpha}
+\bibliography{input/references}
 
 %% end content
 \end{document}

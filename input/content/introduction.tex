@@ -1,3 +1,279 @@
 \chapter{Introduction}
 
-Something general about parallel computing. Maybe something about meta-computation, Robert Glück style.
+%Something general about parallel computing. Maybe something
+%about meta-computation, Robert Glück style.
+
+This thesis describes the development and implementation of
+a new language construct in the programming language Futhark
+and its optimising compiler. The construct provides a way to
+efficiently compute what is referred to as \emph{general
+  reductions}. Before we dive into details let us gain some
+intuition about the idea and explore on a very high level
+some of the problems we need to address. \todo{Need for speed and GPUs are good? Justification for the construct. Maybe after the example?}
+
+Say you have an image consisting of individual pixels each
+having a color, and you want to count the occurence of each
+color in the image. For the sake of simplicity assume that
+we have only four colors: blue, green, red, and yellow. The
+simplest algorithm would be to process one pixel at a time:
+determine its color and increment the corresponding counter
+by one until all pixels in the image have been
+processed. The result of counting can be visualised as a
+histogram as shown in Figure~\ref{fig:problem}.
+%
+\begin{figure}
+\begin{center}
+\begin{tabular}{cc}
+\input{input/content/figures/intro/p1-img} & \input{input/content/figures/intro/p1-hist}
+\end{tabular}
+\tikz[overlay, remember picture]{
+  \draw[-latex, thick] (P1L.east) |- (P1R.west) {};
+}
+\caption{A histogram is simply a visualisation of the
+  distribution of data.}
+\label{fig:problem}
+\end{center}
+\end{figure}
+%
+
+The described algorithm is here given in imperative C-like
+pseudo-code:
+%
+\begin{lstlisting}
+for(int i=0; i<N; i++) {
+  col = f(image[i])
+  cnt = hist[col]
+  hist[col] = cnt + 1
+}
+\end{lstlisting}
+%
+where \texttt{image} is an array of size \texttt{N}
+containing a flattened version of the image, \texttt{hist}
+is an array whose length is equal to the number of unique
+colors in the image, and \texttt{f} is a bucket function
+computing the index, called a bucket, into \texttt{hist} for
+any color in \texttt{image}.
+
+In a sequential (single core?) setting this approach is
+completely safe but also very slow. One way to speed up the
+process is to realise that determining the color of one
+pixel is independent of determining the color of any other
+pixel.  Thus, you could half the time taken to compute the
+histogram by \emph{cooperating} with a friend by splitting
+the image in two equally-sized parts and have your friend
+process one half while you process the other half. This idea
+is displayed in Figure~\ref{fig:problem2}.
+
+But this approach comes with a cost as it implicitly
+introduces \emph{data races}. As an example, assume that you
+and your friend processes pixels 9 and 11 at the same time.
+Then you will read the current value of the counter for
+yellow, 3, increment the value locally by one, 4, and write
+back the value simultaneously. Because you and your friend
+read the same value the new value after both writes will be
+4 but when it should have been 5.
+%
+\begin{figure}
+\begin{center}
+\begin{tabular}{ccc}
+  \input{input/content/figures/intro/p2-imgs} &
+  \tikz[remember picture]{\node (mid) {};} &
+  \input{input/content/figures/intro/p2-hist}
+\end{tabular}
+\tikz[overlay,remember picture]{
+  \draw[-latex, thick] (upper) -| ([yshift=0.5cm]mid.north) |- ([yshift=0.5cm]P2R);
+  \draw[-latex, thick] (lower) -| ([yshift=-0.5cm]mid.south) |- ([yshift=-0.5cm]P2R);
+}
+\caption{Problem of data races. If we split the image in
+  half we can process the pixels in half the time, but what
+  happens when we simultaneously process two pixels that
+  goes into the same bucket?}
+\label{fig:problem2}
+\end{center}
+\end{figure}
+%
+
+Such data races can be avoided by using \emph{atomic
+  operations}.  This means that one can perform a
+read-modify-write operation without being interfered by
+someone else trying to read or write the same piece of
+data. Effectively, this serialises simultaneous accesses to
+the same piece of data. We will go into detail about how
+such atomic operations can be used but for now we assume
+that they exist and that we can use them.
+
+The observant reader may notice that in the worst case, \todo{and you and your friend uses atomic operations}
+where all pixels have the same color, this naive application
+of atomic operations corresponds to the sequential version
+described in pseudo-code above. That is, the level of
+\emph{memory contention} is high.  \todo{Ikke ret godt forklaret / sammenhæng} Hence, we would like to
+minimise contention in order to avoid expensive
+serialisation of accesses.
+
+One such method for minimising contention is the idea of
+\emph{sub-histogramming} which is shown in
+Figure~\ref{fig:problem3}. Continuing the example from
+before, instead of cooperating on the same histogram you
+compute your own local histogram. When all local histograms
+are computed one person combines them into the final
+histogram. In the worst case describe aboved this approach
+will half the time needed to compute the histogram modulo
+the time needed to combine the sub-histograms.
+%
+\begin{figure}
+\begin{center}
+\begin{tabular}{c}
+\input{input/content/figures/intro/p3} \\
+\tikz[remember picture]{\node (p3mid) {};} \\
+\input{input/content/figures/intro/p3-final}
+\end{tabular}
+\tikz[overlay,remember picture]{
+  \draw[->, thick] (P3HL) |- (p3mid.west) -| (P3fin.north);
+  \draw[->, thick] (P3HR) |- (p3mid.east) -| (P3fin.north);
+}
+\caption{The idea of sub-histogramming. We split the image
+  in half and compute two local histograms. When the local
+  histograms are done we combine them into the final
+  histogram.}
+\label{fig:problem3}
+\end{center}
+\end{figure}
+%
+
+Finally, assume that you have much larger image and as many \todo{This was written in a hurry}
+people to help you as there are pixels in the image. It is
+not hard to imagine that there is a tradeoff between
+involving more friends to help you and letting individual
+friends process more than one pixel. The idea of individual
+friends processing more than one pixel is called
+\emph{chunking}. We argue that chunking performs better and
+provide the optimal chunk size.
+
+
+%%% More general: General reduction
+
+The running example is about histograms but the thesis
+claims to be about general reductions, so one might think:
+How do they relate to each other? A histogram is a specific
+case of a general reduction, which structure can be written
+as follows:
+%% %
+%% \begin{figure}
+%% \begin{center}
+%% \begin{minipage}{0.40\textwidth}
+%% \begin{lstlisting}[xleftmargin=0in]
+%% for(int i=0; i<N; i++) {
+%%   ind, val = f(xs[i])
+%%   old = ys[ind]
+%%   new = old `op` val
+%%   ys[ind] = new
+%% }
+%% \end{lstlisting}
+%% \subcaption{General reduction.}
+%% \end{minipage}\hfill
+%% \begin{minipage}{0.00\textwidth}
+%% \begin{center}
+%% %$\Longrightarrow$
+%% $\Rightarrow$
+%% \end{center}
+%% \end{minipage}\hfill
+%% \begin{minipage}{0.40\textwidth}
+%% \begin{lstlisting}[xleftmargin=0in]
+%% for(int i=0; i<N; i++) {
+%%   col, _ = f(image[i])
+%%   cnt = hist[col]
+%%   new = cnt + 1
+%%   hist[col] = new
+%% }
+%% \end{lstlisting}
+%% \subcaption{Histogram computation.}
+%% \end{minipage}
+%% \end{center}
+%% \caption{Defining the histogram compution from above in
+%%   terms of a general reduction. In the histogram computation
+%%   \texttt{val} is always one.}
+%% \label{fig:translate}
+%% \end{figure}
+%% %
+%
+\begin{lstlisting}
+for(int i=0; i<N; i++) {
+  ind, val = f(xs[i])
+  old = ys[ind]
+  new = old `op` val
+  ys[ind] = new
+}
+\end{lstlisting}
+%
+where \texttt{xs} is the input array of size \texttt{N},
+\texttt{ys} is the result array, \texttt{f} is a bucket
+function computing an index and a value, and \texttt{op} is
+an assocaitive and commutative binary operator. In
+particular it uses the operator, \texttt{op}, to combine
+\texttt{old} and \texttt{val} into a new value,
+\texttt{new}, which is stored at the same index,
+\texttt{ind}. If multiple \texttt{x[i]}'s produce the same
+index, \texttt{ind}, the corresponding values will be
+combined using the original value in \texttt{ys[ind]} as the
+base value, hence ``reducing'' the input.
+%This is shown in Figure~\ref{fig:translate}.
+
+It is easy to see how the histogram computation can be
+described as a general reduction: \texttt{val} will be a
+constant one and the operator will be addition.
+
+%% To put our general reduction construct into the landscape we
+%% quickly relate it to traditional reductions from the
+%% functional programming paradigm. People who know reductions
+%% also know general reductions but possibly without being
+%% aware: a reduction is simply a general reduction with only
+%% one bucket, effectively omitting the index produced by the
+%% bucket function, and returning a single value instead of an
+%% array of values. \todo{Too vague. Not sure if it should be
+%%   included here but it is a nice idea to relate it to other
+%%   reductions.}
+
+The main contributions of this thesis are: \todo{Forward references to all chapters?}
+%
+\begin{itemize}
+  \item We explore strategies for implementating
+    user-defined atomic operators working on multiple arrays
+    in CUDA (Section \ref{sec:critical_sections}). As
+    Futhark is ultimately about speed it is desirable to
+    investigate the possibility of different code
+    generations depending on the input data and the operator
+    provided by the user. For example, Futhark internally
+    represents arrays-of-tuples as tuples-of-arrays and thus
+    calls for different strategies on the GPU.
+
+  \item We explore strategies for sub-histogramming (Section
+    \ref{sec:sub_histogramming}) and show that we are able
+    to obtain runtimes faster than the naive use of hardware
+    optimized instructions (Section
+    \ref{sec:performance_experiments}).
+
+  \item In addition we present a heuristic for computing the
+    optimal cooperation level in order to minimise memory
+    contention (Section \ref{sec:performance_experiments}).
+    %\ref{subsec:subhistogramming}).
+
+  \item We argue that chunking performs better than no
+    chunking and provide an optimal chunking level. \todo{Is this really what we do?}
+
+  \item We describe the design and implementation of a
+    general reduction construct in the programming language
+    Futhark and its optimising compiler (Chapter
+    \ref{chap:implementation}). The construct is partly
+    based on ideas from the existing non-deterministic
+    scatter operator, and thus it can be seen as an
+    extension that resolves non-determinism (Chapter
+    \ref{chap:theproblem}).
+
+  \item (One bullet per optimisation.)
+
+  \item We demonstrate the GPU performance of the code
+    generated by the Futhark compiler on a set of benchmarks
+    (how many?). Hopefully we show significant
+    speedups (Chapter \ref{chap:benchmarks}).
+\end{itemize}
+%

@@ -1,0 +1,369 @@
+\chapter{Prototyping}
+\label{chap:prototyping}
+
+The overall purpose of this chapter is to investigate
+possibilities for code generation based on the ideas
+outlined in the introduction, namely, atomic operations and
+sub-histogramming. First, we present and dicuss strategies
+for implementing atomic operations. Second, we present and
+discuss strategies for implementing sub-histogramming.
+Third, we present an experiment comparing the performance of
+the strategies that we just introduced using a naive
+implementation as baseline.
+
+The purpose of the experiment is to investigate impacts on
+performance induced by our implementations compared to the
+naive implementation of the hardware-optimised
+instructions. Along with the experiment we also present a
+simple heuristic for computing the cooperation level. \todo{When should we introduce cooperation and chunking?}
+
+
+\section{Strategies for critical sections}
+\label{sec:critical_sections}
+
+As mentioned in Section \ref{sec:cuda} CUDA provides a small
+selection of atomic operations. Because we need to support
+user-defined operators along with Futhark's tuples-of-arrays
+representation this selection is insufficient. Fortunately,
+we can express any associative and commutative binary
+operator working on a single machine word by the
+\texttt{atomicCAS} operator. For uses that require updating
+multiple arrays we implement a critical section in the
+traditional sense by using the \texttt{atomicExch} operator. \todo{Be careful with the machine word phrasing.}
+
+For the ease of exposition we describe the strategies in
+terms of simple integer addition on a single histogram in
+global memory. For the \texttt{atomicCAS} case any binary
+operator working on a single memory word is allowed, and for
+the \texttt{atomicExch} case any operator is
+allowed. \todo{Read and probably re-write (but you know what I mean)}
+
+%
+\begin{table}
+\begin{center}
+\begin{tabular}{rccccc}
+\toprule
+& \multicolumn{2}{c}{Data-parallel} & \multicolumn{3}{c}{Atomic} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-6}
+& naive & chunking & naive & chunking & cooperative \\
+\midrule
+Work & O(N$\times$H) & O(N + H$\times$HDW) & O(N) & O(N) & O(N + HDW) \\
+Span & ? & ? & ? & ? & ? \\
+\bottomrule
+\end{tabular}
+\caption{Work complexities. The data-parallel versions need
+  no locking, while the atomic versions do need locking in
+  order to ensure determinism. Furthermore, note that the
+  cooperative version exists in two versions using global
+  and shared memory, respectively, and that the cooperation
+  level is fixed at H.}
+\label{tab:work_complexities}
+\end{center}
+\end{table}
+%
+
+\subsection{Specific Operator -- \texttt{atomicAdd}}
+
+Figure~\ref{fig:add_kernel}.
+%
+\begin{figure}
+\begin{lstlisting}
+kernel(int *d_img, int *d_his, int img_sz, int his_sz)
+{
+  int gid = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if(gid < img_sz) {
+    struct indval iv = f(d_img[gid], his_sz);
+    int idx = iv.index;
+    int val = iv.value;
+    atomicAdd(&d_his[idx], val);
+  }
+}
+\end{lstlisting}
+\caption{Atomic Addition (\texttt{atomicAdd}).}
+\label{fig:add_kernel}
+\end{figure}
+%
+
+
+
+\subsection{General Binary Operator -- \texttt{atomicCAS}}
+
+Figure~\ref{fig:cas_kernel}.
+%
+\begin{figure}
+\begin{lstlisting}
+kernel(int  *d_img, int *d_his, int img_sz, int his_sz)
+{
+  int gid = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if(gid < img_sz) {
+    struct indval iv = f(d_img[gid], his_sz);
+    int idx = iv.index;
+    int val = iv.value;
+    int old = d_his[idx];
+    int assumed;
+
+    do {
+      assumed = old;
+      old = atomicCAS(&d_his[idx], assumed,
+                      val + assumed));
+    } while(assumed != old);
+  }
+}
+\end{lstlisting}
+\caption{Atomic Compare and Swap (\texttt{atomicAdd}).}
+\label{fig:cas_kernel}
+\end{figure}
+%
+
+
+
+
+\subsection{General Operator -- \texttt{atomicExch}}
+
+Figure~\ref{fig:exch_kernel}.
+%
+\begin{figure}
+\begin{lstlisting}
+kernel(int  *d_img, int *d_his,
+       volatile int *locks, int img_sz, int his_sz)
+{
+  int gid = blockIdx.x * blockDim.x + threadIdx.x;
+
+  int done, idxl, val;
+  struct indval iv;
+
+  if(gid < img_sz) {
+    done = 0;
+    iv = f(d_img[gid], his_sz);
+    idx = iv.index;
+    val = iv.value;
+  } else {
+    done = 1;
+  }
+
+  while(!done) {
+    if(atomicExch((int *)&locks[idx], 1) == 0) {
+      d_his[idx] = d_his[idx] + val;
+      __threadfence();
+      atomicExch((int *)&locks[idx], 0);
+      done = 1;
+    }
+  }
+}
+\end{lstlisting}
+\caption{Atomic Exchange (\texttt{atomicExch}).}
+\label{fig:exch_kernel}
+\end{figure}
+%
+
+
+\section{Strategies for sub-histogramming}
+\label{sec:sub_histogramming}
+
+Due to the expected negative impact on performance arising
+from the serialising effect of atomic operations, we
+investigate possibilities for mitigation based on the idea
+of sub-histogramming. We present two simple
+sub-histogramming strategies, one in global memory and one
+in shared memory, respectively, along with the naive
+implementation without sub-histogramming in global
+memory. We also investigate the impact of chunking. \todo{At least for the naive implementation}
+
+
+\subsection{The naive implementation}
+
+Figure~\ref{fig:add_kernel} and
+Figure~\ref{fig:naive_chunking}.
+%
+\begin{figure}
+\begin{lstlisting}
+kernel(int *d_img, int *d_his,
+       int img_sz, int his_sz, int num_threads)
+{
+  int gid = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if(gid < num_threads) {
+    for(int i=gid; i<img_sz; i+=num_threads) {
+        struct indvaliv = f(d_img[i], his_sz);
+        atomicAdd(&d_his[iv.index], iv.value);
+    }
+  }
+}
+\end{lstlisting}
+\caption{Naive chunking. One histogram in global memory.}
+\label{fig:naive_chunking}
+\end{figure}
+%
+
+
+\subsection{Sub-histogramming in global memory}
+
+Figure~\ref{fig:coop_global}.
+%
+\begin{figure}
+\begin{lstlisting}
+kernel(int *d_img, int *d_his, int img_sz,
+       int his_sz, int num_threads, int coop_lvl)
+{
+  int gid = blockIdx.x * blockDim.x + threadIdx.x;
+
+  // global histogram
+  int ghidx = (gid / coop_lvl) * his_sz;
+
+  if(gid < num_threads) {
+    for(int i=gid; i<img_sz; i+=num_threads) {
+        struct indval iv = f(d_img[i], his_sz);
+        atomicAdd(&d_his[ghidx + iv.index], iv.value);
+    }
+  }
+}
+\end{lstlisting}
+\caption{Cooperation in global memory (and chunking).}
+\label{fig:coop_global}
+\end{figure}
+%
+
+
+\subsection{Sub-histogramming in shared memory}
+
+
+Figure~\ref{fig:coop_shared}.
+%
+\begin{figure}
+\begin{lstlisting}
+kernel(int *d_img, int *d_his,
+       int img_sz, int his_sz, int num_threads,
+       int coop_lvl, int num_hists, int hists_per_block)
+{
+  int tid = threadIdx.x;
+  int gid = blockIdx.x * blockDim.x + tid;
+  int his_block_sz = hists_per_block * his_sz;
+  int lhid = (tid / coop_lvl) * his_sz; // local histogram idx
+  int ghid = blockIdx.x * hists_per_block * his_sz;
+
+  // initialize local histograms
+  extern __shared__ int sh_his[];
+  for(int i=tid; i<his_block_sz; i+=blockDim.x) {
+    sh_his[i] = 0;
+  }
+  __syncthreads();
+
+  // compute local histograms
+  if(gid < num_threads) {
+    for(int i=gid; i<img_sz; i+=num_threads) {
+        struct indval iv = f(d_img[i], his_sz);
+        atomicAdd(&sh_his[lhid + iv.index],iv.value);
+    }
+  }
+  __syncthreads();
+
+  // copy local histograms to global memory
+  for(int i=tid; i<his_block_sz; i+=blockDim.x) {
+    d_his[ghid + i] = sh_his[i];
+  }
+}
+\end{lstlisting}
+\caption{Cooperation in shared memory (and chunking).}
+\label{fig:coop_shared}
+\end{figure}
+%
+
+
+\section{Performance Experiments}
+\label{sec:performance_experiments}
+
+Above we have presented different strategies for \todo{What are the ``strategies'' we are testing?}
+implementing atomic operations and for sub-histogramming.
+The strategies have different properties and are therefore
+suitable for different input parameters. For example, the
+sub-histogramming strategy in shared memory gives an upper
+limit on sub-histogram size, thus it might not be the best
+choice for computing large histograms. \todo{Runtime selection of code is also a possibility}
+
+This section serves the purpose of investigating the runtime
+performance of the presented strategies. We restrict the
+experiment to investigate the impact of varying cooperation
+level and histogram size.
+
+The experiment measures the runtime for processing an input
+array of 10 million elements. For each histogram size we let
+the cooperation level range from no cooperation to full
+cooperation, i.e., all threads cooperate on one histogram.
+Also, for each histogram size the values of the input array
+elements are uniformly distributed. Note, that this is the
+best case scenario as we minimise contention and thus
+serialisation.
+
+A single runtime measurement includes initialisation and
+computation of sub-histograms but not the final reduction
+phase which is performed in Futhark:
+%
+\begin{verbatim}
+let main [H] (hists : [][H]i32) : [H]i32 =
+  map (\col -> reduce (+) 0 col) (transpose hists)
+\end{verbatim}
+%
+This is because an efficient reduction kernel is non-trivial
+to implement and the fact that efficient code generation
+already exists in Futhark. All runtimes reported are
+averages of five runs.
+
+To compute the sequential chunk per thread, the cooperation
+level and corresponding number of histograms, we use the
+following formulas. Here $N$ is the size of the image and
+$H$ is the size of the histogram:
+%
+\begin{align}
+  \text{Threads}_0 &:=
+  \operatorname{min}\left( \text{HDW}, N \right) \\
+%%
+  \text{Sequential chunk} &:=
+  \Bigl\lceil \frac{N}{\text{Threads}_0} \Bigr\rceil \\
+%%
+  \text{Threads}_1 &:=
+  \Bigl\lceil \frac{N}{\text{Sequential chunk}} \Bigr\rceil \\
+%%
+  \text{Cooperation level} &:=
+  \Bigl\lceil \frac{H}{\text{Sequential chunk}} \Bigr\rceil
+  \qquad (\text{Should be } H) \\
+%%
+  \text{Number of histograms} &:=
+  \Bigl\lceil \frac{\text{Threads}_1}{\text{Cooperation level}} \Bigr\rceil
+\end{align}
+%
+
+The performance of the generated code has been evaluated on
+a test system consisting of:
+%
+\begin{itemize}
+  \item Intel Xeon E5-2650 CPU and an NVIDIA GTX 780Ti GPU.
+\end{itemize}
+%
+with 48MB of shared memory per block and 16MB of L1
+cache. Note, that for NVIDIA GPUs with compute capability
+3.x this split can be configured but 48MB of shared memory
+is the largest for shared memory and also the default.
+
+
+The code is available here: \\
+\centerline{\url{https://github.com/lolkat2k/masters-prototype/}}
+
+
+\subsection{Measurements}
+
+See Table~\ref{tab:experiment} and
+Figures~\ref{fig:one}-\ref{fig:three}.
+%
+\begin{figure}
+  \missingfigure{Experiment table}
+  \caption{Experiment table. See Figures X to Y for visual
+    representations.}
+  \label{tab:experiment}
+\end{figure}
+%
+
+\section{Conclusion}
+
+Is this section needed?

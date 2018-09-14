@@ -1,0 +1,35 @@
+\begin{minipage}{0.35\linewidth}
+\begin{tikzpicture}[remember picture,
+      every node/.style={minimum size=1cm, outer sep=0pt, font=\scriptsize}]
+% Grid
+\draw[-, step=1cm, color=black] (0,0) grid (4,0);
+\draw[->, step=1cm, color=black] (0,0) grid (0,3.25);
+% Boxes
+\newcommand{\mysep}{3pt}
+\draw[fill=blue!40]   (0cm + \mysep, 0cm) rectangle node{} +(1cm - 2*\mysep, 1cm);
+\draw[fill=green!40]  (1cm + \mysep, 0cm) rectangle node{} +(1cm - 2*\mysep, 2.5cm);
+\draw[fill=red!40]    (2cm + \mysep, 0cm) rectangle node{} +(1cm - 2*\mysep, 1.5cm);
+\draw[fill=yellow!40] (3cm + \mysep, 0cm) rectangle node{} +(1cm - 2*\mysep, 3cm);
+% X-Labels
+\draw (0, 0.5)-- +(-0.2, 0) node[left, xshift=0.25cm]{$1$};
+\draw (0, 1)-- +(-0.2, 0) node[left, xshift=0.25cm]{$2$};
+\draw (0, 1.5)-- +(-0.2, 0) node[left, xshift=0.25cm]{$3$};
+\draw (0, 2)-- +(-0.2, 0) node[left, xshift=0.25cm]{$4$};
+\draw (0, 2.5)-- +(-0.2, 0) node[left, xshift=0.25cm]{$5$};
+\draw (0, 3)-- +(-0.2, 0) node[left, xshift=0.25cm]{$6$};
+%\draw (0, 3.5)-- +(-0.2, 0) node[left]{$7$};
+%\draw[thin,gray] (0,0.5)-- +(4,0);
+\draw[thin,gray] (0,1)-- +(4,0);
+%\draw[thin,gray] (0,1.5)-- +(4,0);
+\draw[thin,gray] (0,2)-- +(4,0);
+%\draw[thin,gray] (0,2.5)-- +(4,0);
+\draw[thin,gray] (0,3)-- +(4,0);
+%\draw[thin,gray] (0,3.5)-- +(4,0);
+% X-Labels
+\draw (0.5,0) -- +(0,-0.2) node[below, yshift=0.25cm]{Blue};
+\draw (1.5,0) -- +(0,-0.2) node[below, yshift=0.25cm]{Green};
+\draw (2.5,0) -- +(0,-0.2) node[below, yshift=0.25cm]{Red};
+\draw (3.5,0) -- +(0,-0.2) node[below, yshift=0.25cm]{Yellow};
+\path (current bounding box.north west) -- (current bounding box.south west) coordinate[midway] (P1R); % this should be a fit
+\end{tikzpicture}
+\end{minipage}

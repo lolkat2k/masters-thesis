@@ -1,22 +1,519 @@
 \chapter{Background}
+\label{chap:background}
 
-\section{CUDA}
-
-Here we will describe the CUDA programming model and the
-architecture of a NVIDIA GTX780 Ti using the Kepler
-architecture.
-
-
-\subsection{Programming Model}
-
-Kernels execute in grids of blocks of threads.
+This chapter lays the foundation on which rest of the thesis
+is built. It describes the CUDA programming model which the
+code generation is based upon along with how it maps to a
+GPU -- a concrete instance of a parallel architecture.
+Finally, it describes the programming language Futhark and
+its optimising compiler.
 
 
-\subsection{The NVIDIA Kepler architecture}
+\section{The CUDA Programming Model}
+\label{sec:cuda}
 
-Dunno yet.
+When people talk about CUDA they often refer to it as a
+language, e.g., ``I am writing CUDA code'', which is
+neither completely wrong nor correct. To use NVIDIAs own
+words: \emph{CUDA is a general purpose parallel computing
+  platform and programming model}.
+
+The platform part is a software layer including language
+extensions, compiler, debugger, drivers, and runtime, that
+enables programmers to write programs reaping the power of
+GPGPUs. In this thesis we will use the CUDA language
+extension to C/C++, but other languages and directive-based
+approaches are supported, e.g., Fortran and OpenACC.
+
+The programming model part is often overlooked because the
+language extensions implementing the programming model put a
+lot of focus on hardware. To get a high-level understanding
+of the CUDA programming model it is sufficient to know that
+a GPU is a physical device with a separate memory space from
+the host and that it can execute multithreaded code.
+
+The CUDA programming model is a heterogeneous model which
+refers to the fact that more than one kind of processor is
+used in order to ... [WIKI REFERENCE]. \todo{Write some
+  more} (Introduce \emph{host} and \emph{device}.)  Usually,
+the structure of a simple host program is as follows:
+%
+% If you use this you should probably cite it
+% https://devblogs.nvidia.com/easy-introduction-cuda-fortran/
+\begin{enumerate}
+  \item Declare and allocate host and device memory.
+  \item Initialize host memory.
+  \item Transfer data from host to device.
+  \item Upload and execute program on device.
+  \item Transfer data from device to host.
+\end{enumerate}
+%
+This is also illustrated in Figure~\ref{fig:heterogeneous}.
+%
+%
+\begin{figure}
+\begin{center}
+\begin{tikzpicture}[remember picture,
+      every node/.style={minimum size=1cm-\pgflinewidth, outer sep=0pt, font=\scriptsize}]
+% Top - Host
+\filldraw[fill=light-gray, draw=black] (0,2) rectangle (6,3);
+\filldraw[fill=dark-gray, draw=black] (0,2) rectangle (0.5,3);
+\filldraw[fill=dark-gray, draw=black] (1.5,2) rectangle (3,3);
+\filldraw[fill=dark-gray, draw=black] (5,2) rectangle (6,3);
+\node[fit={(0,2)(6,3)}] (upper) {};
+\node[anchor=east, at=(upper.west)] (hostlab) {Host};
+% Bottom - Device
+\filldraw[fill=light-gray, draw=black] (0,0) rectangle (6,1);
+\filldraw[fill=dark-gray, draw=black] (0.5,0) rectangle (1.5,1);
+\filldraw[fill=dark-gray, draw=black] (3,0) rectangle (5,1);
+\node[fit={(0,0)(6,1)}] (lower) {};
+\node [anchor=east, at=(lower.west)] (devlab) {Device};
+% Arrows
+\draw[-latex] (0.5,2) -- node[above, rotate=90, align=center] {Data \\ + Code} (0.5,1);
+\draw[-latex] (1.5,1) -- node[above, rotate=90] {Data} (1.5,2);
+%
+\draw[-latex] (3,2) -- node[above, rotate=90, align=center] {Data \\ + Code} (3,1);
+\draw[-latex] (5,1) -- node[above, rotate=90] {Data} (5,2);
+% Time line
+\draw[-latex] ([yshift=0.25cm]upper.north west) -- node[above] {Time} ([yshift=0.25cm]upper.north east);
+\draw[latex-latex] ([xshift=0.25cm]upper.north east) -- node[below, rotate=90] {Data} ([xshift=0.25cm]lower.south east);
+\end{tikzpicture}
+\end{center}
+\caption{Heterogeneous programming. The host is transferring
+  code and data to the device, and the device transfers back
+  data to the host. Here the host is launching two
+  kernels. The areas colored with a darker color is
+  indicating where the computation is. The host is always in
+  control of the device.}
+\label{fig:heterogeneous}
+\end{figure}
+%
+
+Even though we argued that the programming model is often
+overlooked due to the language extensions hardware focus we
+will use the C/C++ language extension as a vehicle for
+understanding the following parts of the programming model. \todo{Only the parts relevant to this thesis}
+% These parts can be grouped into three main categories
+% describing threads, memory, and how threads may cooperate.
+
+\subsection{Kernels}
+
+Programs uploaded to a device are also called kernels, not
+to be confused with operating system kernels or kernels from
+image processing.
+
+When telling the device to execute a kernel the user must
+specify how many threads to use, arguments to the kernel,
+and possibly the amount of memory needed. Each thread then
+sequentially executes the instructions contained in the
+kernel code, but threads are executed in parallel.
+
+Kernels are launched by using the special kernel-execution
+syntax indicated by triple chevrons:
+%
+\begin{verbatim}
+  kernel_name<<< ... >>>( ... )
+\end{verbatim}
+%
+where \texttt{kernel\_name} is a C function identifier, and
+what goes into between the parentheses are normal function
+arguments. The arguments that goes into the chevrons specify
+how to group the threads, which we will describe now.
+
+
+\subsection{Thread Hierarchy}
+
+%
+\begin{figure}
+\begin{center}
+\begin{tikzpicture}[remember picture]
+  \newcommand\rectsep{1pt}
+  \newcommand\mysep{0.1}
+  \newcommand\myxshift{4}
+  \newcommand\rectbox[5]{%{x0}{y0}{x1}{y1}{Label}{label p0}{label p1}
+    %\draw[fill=dark-gray] (#1cm+\rectsep,#2cm+\rectsep) rectangle node{#5} +(#3cm-2*\rectsep,#4cm-2*\rectsep);
+    \draw[fill=dark-gray] (#1+\mysep+\myxshift, #2+\mysep) node (bob) {} rectangle node (spelunking) {\footnotesize #5} (#3-\mysep+\myxshift, #4-\mysep) node (notbob) {};
+  }
+%% Grid
+\node[draw, fill=light-gray, fit={(-10.0+\myxshift, 0.0)(-5.50+\myxshift, 4.5)}] (upper) {};
+%% Bottom row
+\rectbox{-10.0}{0.0}{-8.5}{1.5}{(0,0)};
+\rectbox{-8.50}{0.0}{-7.0}{1.5}{(1,0)};
+\rectbox{-7.00}{0.0}{-5.5}{1.5}{(2,0)};
+%% Middle row
+\rectbox{-10.0}{1.5}{-8.5}{3.0}{(0,1)};
+\rectbox{-8.50}{1.5}{-7.0}{3.0}{(1,1)};
+\rectbox{-7.00}{1.5}{-5.5}{3.0}{(2,1)};
+%% Top row
+\rectbox{-10.0}{3.0}{-8.50}{4.5}{(0,2)};
+\rectbox{-8.50}{3.0}{-7.00}{4.5}{(1,2)};
+\rectbox{-7.00}{3.0}{-5.50}{4.5}{(2,2)};
+%% Shadow nodes
+\node[anchor=south west] (ld) at (-7.00+\mysep+\myxshift, 1.5+\mysep, 0) {};
+\node[anchor=north west] (lu) at (-7.00+\mysep+\myxshift, 3.0-\mysep, 0) {};
+\node[anchor=south east] (rd) at (-5.50-\mysep+\myxshift, 1.5+\mysep, 0) {};
+\node[anchor=north east] (ru) at (-5.50-\mysep+\myxshift, 3.0-\mysep, 0) {};
+
+%% Arrows from grid to thread block
+\newcommand\myyshift{0.15}
+\node[draw, fit={(0,0+\myyshift,0)(3,3+\myyshift,-3)}] (cubenode) {}; % x,y,z
+\draw[dashed] (ld.south west) -- (cubenode.south west);
+\draw[dashed] (lu.north west) -- (cubenode.north west);
+\draw[dashed] (rd.south east) -- (cubenode.south east);
+\draw[dashed] (ru.north east) -- (cubenode.north east);
+\node[draw, fit={(0,0+\myyshift,0)(3,3+\myyshift,-3)}, fill=dark-gray] {}; % x,y,z
+%\node[anchor=south] at ([yshift=0.15cm]cubenode.north) {Thread block};
+
+% Fill cuboid
+\filldraw[light-gray] (0,0+\myyshift,0) rectangle (3,3+\myyshift,0); % front
+\filldraw[light-gray] (3,0+\myyshift,-3) -- (3,3+\myyshift,-3) -- (3,3+\myyshift,0) -- (3,0+\myyshift,0); % right
+\filldraw[light-gray] (0,3+\myyshift,-3) -- (0,3+\myyshift,0) -- (3,3+\myyshift,0) -- (3,3+\myyshift,-3); % top
+% Cuboid
+\foreach \x in {0,...,3}
+{   \draw (0,  \x+\myyshift, 0) -- (3,\x+\myyshift, 0);   % horizontal lines - front
+    \draw (\x, 0+\myyshift,  0) -- (\x ,3+\myyshift, 0); % vertical lines - front
+    \draw (3,\x+\myyshift, -3) -- (3,\x+\myyshift, 0); % depth - right
+    \draw (\x ,3+\myyshift, -3) -- (\x ,3+\myyshift, 0); % depth - top
+    \draw (3,0+\myyshift, -\x ) -- (3,3+\myyshift, -\x); % vertical lines - right
+    \draw (0,3+\myyshift, -\x ) -- (3,3+\myyshift, -\x); % horizontal lines - top
+};
+% Arrows
+\draw[-latex]   (0.5, 0.5+\myyshift, 0) to [out=0, in=160] (5.0, 0.5+\myyshift, 0);
+\node[right] at (5.0, 0.5+\myyshift, 0) {{\footnotesize Thread (0, 0, 0)}};
+%
+\draw[-latex]   (3.0, 1.5+\myyshift, -1.5) to [out=30, in=160] (5.0, 1.5+\myyshift, 0);
+\node[right] at (5.0, 1.5+\myyshift, 0) {{\footnotesize Thread (2, 1, 1)}};
+%
+\draw[-latex]   (1.5, 3.0+\myyshift, -1.5) to [out=20, in=140] (5.0, 2.5+\myyshift, 0);
+\node[right] at (5.0, 2.5+\myyshift, 0) {{\footnotesize Thread (1, 2, 1)}};
+%
+\end{tikzpicture}
+\end{center}
+\caption{Thread hierarchy. Here we have displayed a grid
+  (left) and emphasized thread block (2,1) (right), along
+  with individual threads in that block. In total, this
+  constitutes a kernel.}
+\label{fig:thread_hierarchy}
+\end{figure}
+%
+
+When specifying the number of threads the user must also
+specify how to group these threads. We will call this
+grouping or structuring for the thread space. The thread
+space is split into three categories, namely threads,
+blocks, and grids, where each category is enclosed in its
+successor.
+
+At the lowest level we have threads which are organised in
+thread blocks or just blocks. Thread blocks have, as their
+name suggests, three dimensions, x, y, and z, and all
+dimensions must be greater than or equal to one. Next, a
+collection of blocks are organised in a grid.  In a similar
+fashion, grids are two-dimensional with x and y dimensions,
+which all also must be greater than or equal to one.
+Finally, we have a kernel which, as mentioned above, must
+specify the thread space, i.e., grid and block size. Thus,
+we have the mnemonic: \emph{a kernel is executed in a grid
+  of blocks of threads}.
+
+The kernel-execution syntax takes two arguments between the
+chevrons, the first specifying the grid dimensions and the
+second specifying the block dimensions.
+
+Each thread launched then has a three-dimensional vector
+corresponding to its conceptual place in the block and the
+blocks place in the grid. The thread and block vectors
+vector can be accessed through the built-in functions
+\texttt{threadIdx} and \texttt{blockIdx}, and the vector
+elements can be accessed by specifying the dimension. For
+example, \texttt{threadIdx.x} gives the threads position in
+the blocks x dimension, and \texttt{blockIdx.x} gives the
+blocks position in the grids x dimension. Similiarly, each
+thread can access the sizes of the dimensions for both
+blocks and grids, e.g., \texttt{blockDim.x} and
+\texttt{gridDim.x} for the length of the blocks and grids x
+dimension, respectively.
+
+Currently, the size of thread blocks are restricted to 1024
+threads no matter its dimensions, but multiple equal-sized
+blocks can be launched. Furthermore, blocks are required to
+execute independently, hence the code is scalable with
+hardware. We will get into this in
+Section~\ref{sec:architecture}, but first we will describe
+how threads may save and access data.
+
+
+\subsection{Memory Hierarchy}
+
+\todo{Maybe some graphics?}
+% https://tex.stackexchange.com/questions/110522/how-to-elegantly-create-a-pyramid-hierarchy-in-tikz
+
+% Here, under Local Memory:
+% https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#device-memory-accesses
+
+% Additionally, each thread also have local memory which is
+% private to that thread and is as slow as global memory.
+% This memory space is used for register spilling. It is
+% cached like global memory.
+
+% Remember, we are still talking about a programming model
+% so no specific implementation should be mentioned.
+
+% Recall that blocks are required to execute independently
+
+% It is mentioned in the intro to this section now, but you
+% may repeat it here: host and device have separate memory
+% spaces
+
+Like for CPUs we can illustrate the memory hierarchy of a
+GPU as a pyramid with the slowest and largest type of memory
+at the bottom, and the fastest and scarcest type at the top.
+Roughly, we have three main categories ranging from slowest
+to fastest, namely global memory, shared memory, and
+registers.
+
+The large and slow global memory must be allocated and
+initialised by specialised CUDA functions, e.g.,
+\texttt{cudaMalloc()} and \texttt{cudaMemcpy()} which
+allocates memory on the device and copies memory between the
+host and the device, respectively. The duration of global
+memory is inter-kernel meaning that it is persistent across
+kernels launched by the same application, and thus it can be
+used to communicate between threads in different
+grids. Global memory is free'd by calling
+\texttt{cudaFree()}.
+
+Shared memory is much faster than global memory and is
+allocated on a per-block basis, i.e., threads from the same
+block access this same shared memory when allocated. The
+lifetime of shared memory is the same of the block, thus it
+can only be used to communicate between threads from the
+same block. Shared memory is allocated either statically by
+specifiying the amount in the kernel or dynamically using
+the kernel-execution syntax.
+
+The fastest type of memory is registers and they are private
+to each thread. Registers are very scarce and is used for
+storing variables, but one should be careful as the compiler
+may spill them to thread-local memory which are as slow as
+global memory.
+
+% https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#memory-fence-functions
+% https://en.wikipedia.org/wiki/Memory_ordering
+Finally, the CUDA programming model assumes a weakly-ordered
+memory model. This means that the order in which data
+written to global or shared memory, and others, may not be
+the same order in which other threads observe the data being
+written. Such reordering is generated by the compiler or by
+the CPU at runtime and may be used for optimising bandwith
+utilisation.  In a single threaded program this does not
+matter -- in fact it happens all the time. For multithreaded
+programs, like GPU kernels, this can cause erroneous
+programs. The CUDA programming model provides memory
+functions to force an ordering on memory accesses. For
+example, \texttt{\_\_threadfence()} will do the work, but it
+depends on not reading cached values but actual memory. This
+is ensured by the volatile keyword. \todo{Not done. And Should volatile be explained here?}
+
+% https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#volatile-qualifier
+% Volatile
+
+\subsection{Synchronization Functions}
+
+We will use only two synchronisation functions that work on
+different levels.
+
+The most coarse grained, \texttt{cudaThreadSynchronize()},
+is called from the host and forces the host to wait for the
+device to finish. This function can be used if the results
+of one kernel, say \texttt{kernelA}, are required by another
+subsequent kernel, \texttt{kernelB}:
+%
+\begin{verbatim}
+kernelA<<<...>>>(...);
+cudaThreadSynchronize();
+kernelB<<<...>>>(...);
+\end{verbatim}
+%
+On a per-block level we have \texttt{\_\_syncthreads()}. Divergent code.
+
+
+\subsection{Atomic Functions}
+
+As the title says, describe atomic operators:
+\texttt{atomicAdd}, \texttt{atomicCAS}, and
+\texttt{atomicExch}. Does not work as memory fences.
+%
+\begin{itemize}
+  \item Ikke alle arkitekturer har atomiske operationer, men
+    vi regner med at når NVIDIA implementerer det, så følger
+    resten trop.
+\end{itemize}
+%
+
+\section{GPGPU Architecture}
+\label{sec:architecture}
+
+% SIMT - This is implementation specific
+
+Herein I think we should describe the architecture and how
+the CUDA programming model maps to hardware.
+
+
+\section{Obtaining Good Performance on GPUs}
+\label{sec:performance_on_gpus}
+
+In this section one could describe various ways to optimise
+CUDA code, e.g., coalescing, and other factors that have an
+impact on performance. (Kind of summarising / combining what
+we have just learned in the previous two sections.)
+%
+\begin{itemize}
+  \item Avoiding thread divergence.
+  \item I guess that coalescing minimises warp divergence
+    (because we increment in blockdim-chunks, and only one
+    warp can be cut in ``half'').
+\end{itemize}
+%
+
+Imagine a bus width of 512 bit (64 bytes) and a warp size of
+32. Then if the accesses are to contigious memory, then
+you'll have $\frac{32*4}{64} = 2$ memory transactions.
 
 
 \section{Futhark}
+\label{sec:futhark}
 
-Dunno yet.
+In this section we should describe the properties of Futhark
+that we base the design of our language construct upon.
+%% NOTES
+\begin{itemize}
+  \item Futhark introduces a programming model that builds
+    on the vocabulary of functional programming, by using
+    second order array combinators (SOACS) to express bulk
+    operations on arrays.
+
+  \item Futhark can be compiled to efficient GPU code -- but
+    it (compiler or language?) is hardware agnostic in
+    nature (?).
+
+  \item Futhark is both a programming langauge and an
+    optimising compiler. If it is not clear from the context
+    we will explicitly mention which one we are referring
+    to.
+
+  \item We focus on the GPU pipeline.
+
+  \item
+\end{itemize}
+%
+
+
+\subsection{Overview of Compiler Phases}
+
+%
+\begin{figure}
+\begin{center}
+\input{input/content/figures/pipeline}
+\end{center}
+\caption{Overview of compiler stages.}
+\label{fig:compiler_overview}
+\end{figure}
+%
+%
+\begin{figure}
+\begin{center}
+\input{input/content/figures/internaliser}
+\end{center}
+\caption{Overview of internaliser.}
+\label{fig:internaliser}
+\end{figure}
+%
+%
+\begin{figure}
+\begin{center}
+\input{input/content/figures/passes}
+\end{center}
+\caption{Overview of transformations and
+  optimisations. Note, that this is only a selection of the
+  actual passes performed by the compiler, and that there
+  may be passes in between the displayed
+  passes. Furthermore, after each change of representation
+  the program is type checked.}
+\label{fig:passes}
+\end{figure}
+%
+
+
+\subsection{Source Language}
+
+%
+\begin{figure}
+\begin{equation}
+\begin{array}{lrlr}
+x & ::= & id & \text{(Variable names)} \\
+f & ::= & id & \text{(Function names)}
+\end{array}
+\end{equation}
+\caption{Grammar for the Futhark source language.}
+\label{fig:futhark_src}
+\end{figure}
+%
+
+
+\subsection{Core Language}
+
+%
+\begin{figure}
+\begin{equation}
+\begin{array}{lrlr}
+\multicolumn{4}{c}{\text{(Basic values)}} \\
+f & ::= & \textbf{id} & \text{(Function names)} \\
+x & ::= & \textbf{id} & \text{(Variable names)} \\
+c & ::= & \textbf{const} & \text{(Constant values)} \\
+\\
+\multicolumn{4}{c}{\text{(Types)}} \\
+t & ::= & \mathtt{i32}~|~\mathtt{f32}~|~\mathtt{bool}~|~\dots & \text{(Built-in types)} \\
+\tau & ::=       & \makebox[10pt][c]{$t$}~|~\texttt{[]}\tau & \text{(Scalar or array type)} \\
+\hat{\tau} & ::= & \makebox[10pt][c]{$\tau$}~|~^*\tau & \text{(Nonunique or unique type)} \\
+\rho & ::= & (\tau_1, \dots, \tau_n) & \text{(Tuple type)} \\
+\hat{\rho} & ::= & (\hat{\tau_1}, \dots, \hat{\tau_n}) & \text{(Nonunique or unique tuple type)} \\
+%\phi & ::= & \rho_1 \rightarrow \dots \rightarrow \rho_n & \text{(Function type -- not used)} \\
+%\multicolumn{4}{l}{\text{(Also, it couldn't the function use existential types?)}} \\
+\\
+\multicolumn{4}{c}{\text{(Patterns)}} \\
+p & ::= & (x_1 : \tau_1)~\dots~(x_n : \tau_n) & \text{(Let or lambda pattern)} \\
+\hat{p} & ::= & (x_1 : \hat{\tau}_1)~\dots~(x_n : \hat{\tau}_n) & \text{(Function pattern)} \\
+\\
+\multicolumn{4}{c}{\text{(Expressions)}} \\
+%\multicolumn{4}{l}{\text{(BasicOp)}} \\
+e & ::= & c & \text{(Constant)} \\
+& | & x & \text{(Variable)} \\
+& | & (x_1, \dots, x_n) & \text{($n$-tuple)} \\
+& | & e_1 \oplus e_2 & \text{(Scalar (??) binary operator)} \\
+& | & x[x_1, \dots, x_n] & \text{(Array indexing)} \\
+& | & x~\mathtt{with}~[e_1, \dots, e_n]~\leftarrow~e & \text{(In-place update)} \\
+& | & \mathtt{let}~p~=~e_1~\mathtt{in}~e_2 & \text{(Let binding)} \\
+& | & \mathtt{iota}~e & \text{(Iota)} \\
+& | & \mathtt{replicate}~e_1~e_2 & \text{(Replicate)} \\
+%\multicolumn{4}{l}{\text{(ExpT)}} \\
+& | & f~e_1~\dots~e_n & \text{(Function call -- Apply)} \\
+& | & \mathtt{if}~e_1~\mathtt{then}~e_2~\mathtt{else}~e_3  & \text{(Branch -- If)} \\
+& | & \mathtt{loop}~\hat{p}~=~e_1~\mathtt{for}~x_1<x_2~\mathtt{do}~e_2 & \text{(Loop -- DoLoop)} \\
+%\multicolumn{4}{l}{\text{(Op)}} \\
+& | & op~e_1~\dots~e_n & \text{(Operator call)} \\
+\\
+\multicolumn{4}{c}{\text{(Program and functions)}} \\
+prog & ::= & fundec~~prog~|~\epsilon & \text{(Program)} \\
+fun & ::= & \mathtt{let}~f~\hat{p}~:~\hat{\tau}~=~e& \text{(Named function)}
+\end{array}
+\end{equation}
+\caption{Selected parts of the grammar for the core Futhark
+  intermediate representation (IR). Note, that $op$ may
+  change with the representation.}
+\label{fig:futhark_core}
+\end{figure}
+%
+
+\subsection{In-place updates}
+\subsection{Uniqueness types}

@@ -1,0 +1,5 @@
+# output folder, including pdf
+texout/
+
+# backup files created by aspell
+*.bak

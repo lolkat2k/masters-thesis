@@ -1,0 +1,76 @@
+%%%% Compiler overview
+\begin{tikzpicture}[
+    every node/.style={font=\tiny},
+    main node/.style={rectangle, draw, fill=light-gray, font=\tiny,
+      minimum width=width("Internalisation"),
+      minimum height=2\baselineskip},
+    inner node/.style={rectangle, anchor=north east, font=\tiny},
+    arrow node/.style={}
+]
+%% Main nodes
+% Front-end
+  \node[main node] (1) {Lexer};
+  \node[inner node, at=(1.north east)] {1};
+
+  \node[main node] (2) [below=of 1, align=center] {Parser};
+  \node[inner node, at=(2.north east)] {2};
+
+  \node[main node] (3) [below=of 2] {Typechecker};
+  \node[inner node, at=(3.north east)] {3};
+% Middle-end
+  \node[main node] (4) [below=of 3] {Internalisation};
+  \node[inner node, at=(4.north east)] {4};
+
+%  \node[main node] (5) [left=of 4] {Typechecker};
+
+  \node[main node] (6) [left=2cm of 4, align=center] {Transformations \\ + Optimisations};
+  \node[inner node, at=(6.north east)] {5};
+
+%  \node[main node] (7) [left=of 6] {Typechecker};
+
+  \node[main node] (8) [left=2cm of 6] {IL code gen.};
+  \node[inner node, at=(8.north east)] {6};
+% Back-end
+  \node[main node] (9) [above=of 8, align=center] {IL code gen. \\ (Kernels)};
+  \node[inner node, at=(9.north east)] {7};
+
+  \node[main node] (10) [above=of 9, align=center] {IL code gen. \\ (OpenCL calls)};
+  \node[inner node, at=(10.north east)] {8};
+
+  \node[main node] (11) [above=of 10, align=center] {OpenCL \\ code gen.};
+  \node[inner node, at=(11.north east)] {9};
+
+%% Shadow nodes
+  \node [above=of 1, align=center] (start) {Source \\ code};
+  \node [above=of 11, align=center] (end) {OpenCL \\ program};
+
+%% Arrows
+% Front-end
+\draw [->] (start) -- (1);
+\draw [->] (1) -- node[left] {Tokens} (2);
+\draw [->] (2) -- node[left, align=center, name=src] {AST: \\ \phantom{NoInfo}} node[right, align=left] {Source: \\ NoInfo} (3);
+% Middle-end
+\draw [->] (3) -- node[left, align=center] {AST: \\ \phantom{Info}} node[right, align=left] {Source: \\Info} (4);
+\draw [->] (4) -- node[above, align=center, name=soacs] {AST:} node[below] {Core: SOACS} (6);
+\draw [->] (6) -- node[above, align=center, name=expmem] {AST:} node[below] {Core: ExpMem} (8);
+% Back-end
+\draw [->] (8) -- node[right, align=center] {IL: \\ (dunno)} (9);
+\draw [->] (9) -- node[right, align=center] {IL: \\ Kernels} (10);
+\draw [->] (10) -- node[right, align=center, name=opencl] {IL: \\ OpenCL} (11);
+\draw [->] (11) -- (end);
+
+%% Enclosing boxes
+% Front-end
+\node[draw, dashed, rounded corners, color=black, fit={(1)(3)(src)}
+] (frontend) {};
+\node [anchor=south, at=(frontend.west), rotate=90] (frontlab) {Front end};
+% Middle-end
+\node[draw, dashed, rounded corners, color=black, fit={(4)(8)(soacs)(expmem)}
+] (middle) {};
+\node [anchor=south, at=(middle.north)] (midlab) {Middle};
+% Back-end
+\node [draw, dashed, rounded corners, color=black, fit={(9)(11)(opencl)},
+] (backend) {};
+\node [anchor=north, at=(backend.east), rotate=90] (midlab) {Back end};
+\end{tikzpicture}
+%
