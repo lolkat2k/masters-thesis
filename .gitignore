@@ -3,3 +3,13 @@ texout/
 
 # backup files created by aspell
 *.bak
+
+# files pertaining to benchmarks
+micro-bench/buckets_*_10m
+micro-bench/*.c
+micro-bench/reduce_by_index
+micro-bench/reduce_by_index_seq
+micro-bench/map_sort_scan
+micro-bench/scatter
+micro-bench/lib/
+micro-bench/futhark.pkg
