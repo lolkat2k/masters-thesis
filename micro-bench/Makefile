@@ -8,7 +8,7 @@ RUNS = 5
 .PHONY: benchmark
 
 benchmark: 	reduce_by_index.json reduce_by_index_seq.json \
-		map_sort_scan.json scatter.json # stream_red.json
+		map_sort_scan.json stream_red.json scatter.json
 
 buckets_%_10m:
 	futhark-dataset --i32-bounds=0:0 -g [$*]i32 \
@@ -40,9 +40,8 @@ scatter.json: scatter.fut $(BUCKETS:%=buckets_%_10m)
 		       --json $@ $<
 
 clean:
-	rm -f reduce_by_index.c reduce_by_index_seq.c \
-	      stream_red.c map_sort_scan.c scatter.c
 	rm -f reduce_by_index reduce_by_index_seq \
 	      stream_red map_sort_scan scatter
+	rm -f *.c
 	rm -f buckets_*_10m
 	rm -f *.json
