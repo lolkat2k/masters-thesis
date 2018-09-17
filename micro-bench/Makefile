@@ -3,6 +3,7 @@ FUT_C  = /home/fjc657/futhark/.stack-work/install/x86_64-linux/lts-12.7/8.4.3/bi
 
 IMAGE_SIZE = 1000000
 BUCKETS = 16 64 256 1024
+RUNS = 5
 
 .PHONY: benchmark
 
@@ -15,27 +16,27 @@ buckets_%_10m:
 
 reduce_by_index.json: reduce_by_index.fut $(BUCKETS:%=buckets_%_10m)
 	@futhark-bench --compiler=$(FUT_CL) \
-		       --runs=5 \
+		       --runs=$(RUNS) \
 		       --json $@ $<
 
-reduce_by_index_seq.json: reduce_by_index_seq.fut $(BUCKETS:%=buckets_%_10m)
+reduce_by_index_seq.json: reduce_by_index.fut $(BUCKETS:%=buckets_%_10m)
 	@futhark-bench --compiler=$(FUT_C) \
-		       --runs=5 \
+		       --runs=$(RUNS) \
 		       --json $@ $<
 
 stream_red.json: stream_red.fut $(BUCKETS:%=buckets_%_10m)
 	@futhark-bench --compiler=$(FUT_CL) \
-		       --runs=5 \
+		       --runs=$(RUNS) \
 		       --json $@ $<
 
 map_sort_scan.json: map_sort_scan.fut $(BUCKETS:%=buckets_%_10m)
 	@futhark-bench --compiler=$(FUT_CL) \
-		       --runs=5 \
+		       --runs=$(RUNS) \
 		       --json $@ $<
 
 scatter.json: scatter.fut $(BUCKETS:%=buckets_%_10m)
 	@futhark-bench --compiler=$(FUT_CL) \
-		       --runs=5 \
+		       --runs=$(RUNS) \
 		       --json $@ $<
 
 clean:
