@@ -1,0 +1,41 @@
+There are three programs, the original and too rewritten
+programs. The two latter does not show speedups and one
+actually crash because it use too much memory.
+
+
+ * tpacf.fut
+
+This is the original tpacf program from futhark-benchmarks.
+
+I have been concentrating on the function 'doCompute' for a
+start, but the function 'doComputeSelf' follows the same
+pattern.
+
+'doCompute' returns a histogram of type '[numBins]i32'. It
+does so by producing 'num1' subhistograms by mapping the
+function 'one_value' over the array 'data1' and summing the
+bins across subhistograms.
+
+When 'doCompute' is called from 'main' it is called inside a
+map, i.e., it produces a collection of histograms,
+'drs'. These subhistograms in 'main' are summed and bound to
+a pattern as the initial value, 'dr'.
+
+
+ * Rewrite 1: tpacf-genred-v1.fut
+
+Rewriting the inner subhistogram to use 'reduce_by_index'.
+
+
+ * Rewrite 2: tpacf-genred-v2.fut
+
+Flatting the histogram computation in 'doCompute', such that
+is uses only one 'reduce_by_index', _and_ removing the outer
+map in 'main'.
+
+
+ * Rewrite 3: No program.
+
+I also tested a version that flattened everything inside
+'doCompute' but kept the outer map in 'main', but the result
+was as with tpcaf-genred-v1.fut.
